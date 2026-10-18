@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Проверка API — Astana Compass</title>
+  <link rel="stylesheet" href="/sandbox-assets/sandbox.css">
+  <script src="/sandbox-assets/sandbox.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к проверке</a>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/sandbox" aria-label="Astana Compass — страница проверки API">
+        <span class="brand-mark" aria-hidden="true">↗</span>
+        <span>astana<span class="brand-light">compass</span></span>
+      </a>
+      <nav aria-label="Навигация">
+        <span class="version-tag">API v1</span>
+        <a class="docs-link" href="/docs">Документация API <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Рабочая панель · Developer sandbox</p>
+          <h1 id="page-title">Проверим прогулку.</h1>
+          <p class="intro-copy">Задайте условия, сравните варианты и соберите маршрут.<br class="desktop-break"> Все действия обращаются к API этого приложения.</p>
+        </div>
+        <div class="mode-pill" id="mode-pill">Режим: проверяем</div>
+      </section>
+
+      <section id="data-banner" class="data-banner banner-pending" aria-labelledby="banner-title" aria-live="polite">
+        <span class="banner-symbol" aria-hidden="true">i</span>
+        <div>
+          <h2 id="banner-title">Проверяем режим данных</h2>
+          <p id="banner-copy">Статус появится из заголовка X-Astana-Data-Mode. Эта страница предназначена для проверки, а не для городской навигации.</p>
+        </div>
+      </section>
+
+      <noscript><p class="error-box">Для запросов к API включите JavaScript. Документация доступна по ссылке выше.</p></noscript>
+
+      <section class="system-panel" aria-label="Состояние API и каталога">
+        <div class="status-grid">
+          <div class="status-item"><span class="status-label">Соединение с API</span><strong id="live-status">Проверяем…</strong><small id="live-detail">GET /v1/health/live</small></div>
+          <div class="status-item"><span class="status-label">Готовность сервисов</span><strong id="ready-status">Проверяем…</strong><small id="ready-detail">GET /v1/health/ready</small></div>
+          <div class="status-item"><span class="status-label">Мест в каталоге</span><strong id="catalog-status">—</strong><small id="catalog-detail">GET /v1/data-status</small></div>
+          <button class="icon-button refresh-button" id="refresh-status" type="button" aria-label="Обновить состояние API и каталога" title="Обновить состояние">↻</button>
+        </div>
+        <details class="catalog-disclosure">
+          <summary>Посмотреть каталог и источники</summary>
+          <div id="catalog-content" class="catalog-content"><p class="muted">Загружаем список мест…</p></div>
+        </details>
+      </section>
+
+      <div class="workspace">
+        <section class="panel request-panel" aria-labelledby="request-title">
+          <div class="section-heading"><span class="step-number">01</span><div><h2 id="request-title">Задайте условия</h2><p>Начните с готового сценария.</p></div></div>
+          <div class="presets" role="group" aria-label="Готовые тестовые сценарии">
+            <button type="button" class="preset-button" data-preset="indoor"><strong>Помещение на час</strong><span>Обязательный фильтр</span></button>
+            <button type="button" class="preset-button" data-preset="accessibility"><strong>Неизвестная доступность</strong><span>Проверка неизвестных фактов</span></button>
+            <button type="button" class="preset-button" data-preset="short"><strong>Мало времени</strong><span>Бюджет всего 1 минута</span></button>
+            <button type="button" class="preset-button" data-preset="transport"><strong>Неподдерживаемый транспорт</strong><span>Проверка ошибки API</span></button>
+          </div>
+          <p id="preset-note" class="form-note" aria-live="polite">В режиме fixture фильтры работают, а смысл текста запроса не используется поиском.</p>
+
+          <form id="request-form">
+            <div class="field">
+              <label for="query">Что хотите сделать?</label>
+              <textarea id="query" name="query" rows="3" maxlength="2000" required>Хочу провести час в помещении и немного отдохнуть.</textarea>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="locale">Язык ответа</label><select id="locale" name="locale"><option value="ru">Русский</option><option value="kk">Қазақша</option><option value="en">English</option></select></div>
+              <div class="field"><label for="budget">Время, минуты</label><input id="budget" name="budget" type="number" min="1" max="1440" step="1" value="60" required inputmode="numeric"></div>
+            </div>
+            <div class="field"><label for="start-at">Начало прогулки</label><input id="start-at" name="start-at" type="datetime-local" required step="60" aria-describedby="timezone-note"><small id="timezone-note">Часовой пояс: Asia/Almaty</small></div>
+            <fieldset class="coordinate-fieldset">
+              <legend>Точка старта</legend>
+              <div class="form-grid">
+                <div class="field"><label for="latitude">Широта</label><input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="51.089" required inputmode="decimal"></div>
+                <div class="field"><label for="longitude">Долгота</label><input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="71.419" required inputmode="decimal"></div>
+              </div>
+              <small>По умолчанию — рядом с синтетическими точками каталога.</small>
+            </fieldset>
+            <div class="field"><label for="transport">Как передвигаться</label><select id="transport" name="transport"><option value="walking">Пешком</option><option value="cycling">На велосипеде · тест ошибки</option><option value="driving">На автомобиле · тест ошибки</option></select><small>Текущий API поддерживает ходьбу.</small></div>
+            <label class="checkbox-line" for="return-to-origin"><input id="return-to-origin" name="return-to-origin" type="checkbox" checked><span>Включить возвращение к старту</span></label>
+            <fieldset class="constraints-fieldset">
+              <legend>Ограничения</legend>
+              <p class="field-hint">Обязательное условие должно быть подтверждено. Пожелание допускает объяснённый компромисс.</p>
+              <div class="field"><label for="indoor">В помещении</label><select id="indoor" name="indoor"><option value="none">Не учитывать</option><option value="preferred">Желательно</option><option value="required" selected>Обязательно</option></select></div>
+              <div class="field"><label for="wheelchair">Доступно на коляске</label><select id="wheelchair" name="wheelchair"><option value="none" selected>Не учитывать</option><option value="preferred">Желательно</option><option value="required">Обязательно</option></select></div>
+            </fieldset>
+            <div id="form-error" class="error-box" role="alert" hidden></div>
+            <button class="primary-button submit-button" id="recommend-button" type="submit"><span>Получить варианты</span><span aria-hidden="true">→</span></button>
+            <p class="microcopy">Новый поиск обновляет варианты и выбор остановок.</p>
+          </form>
+        </section>
+
+        <div class="results-column">
+          <section class="panel results-panel" aria-labelledby="results-title" id="results-section" aria-busy="false">
+            <div class="section-heading section-heading-wide"><div class="heading-group"><span class="step-number">02</span><div><h2 id="results-title">Варианты прогулки</h2><p>Каждый вариант рассчитан отдельно.</p></div></div><span id="results-state" class="neutral-tag">Ожидаем запрос</span></div>
+            <p id="response-context" class="response-context" hidden></p>
+            <div id="recommend-status" class="feedback-line" aria-live="polite"></div>
+            <div id="results-content" class="results-content"><div class="empty-state"><span class="empty-mark" aria-hidden="true">↗</span><h3>Начните с одного сценария</h3><p>Проверьте, как API учитывает время, фильтры и неизвестные данные.</p><span class="empty-endpoint">POST /v1/recommendations</span></div></div>
+            <details class="debug-disclosure" id="recommend-debug" hidden><summary>Запрос и ответ · JSON</summary><div class="debug-content"><p id="recommend-http" class="debug-meta"></p><h3>Отправленный запрос</h3><pre id="recommend-request" tabindex="0"></pre><h3>Ответ API</h3><pre id="recommend-response" tabindex="0"></pre></div></details>
+          </section>
+
+          <section class="panel itinerary-panel" aria-labelledby="itinerary-title" id="itinerary-section" aria-busy="false">
+            <div class="section-heading section-heading-wide"><div class="heading-group"><span class="step-number">03</span><div><h2 id="itinerary-title">Соберите маршрут</h2><p>Выберите от 1 до 3 остановок.</p></div></div><span id="selected-count" class="neutral-tag">0 / 3</span></div>
+            <p id="selection-empty" class="selection-empty">Добавьте места из вариантов выше. Порядок остановок можно изменить.</p>
+            <ol id="selected-list" class="selected-list" aria-label="Выбранные остановки в порядке посещения"></ol>
+            <p id="selection-note" class="form-note" aria-live="polite"></p>
+            <button class="primary-button itinerary-button" id="itinerary-button" type="button" disabled><span>Рассчитать выбранный маршрут</span><span aria-hidden="true">→</span></button>
+            <div id="itinerary-status" class="feedback-line" aria-live="polite"></div>
+            <div id="itinerary-content"></div>
+            <details class="debug-disclosure" id="itinerary-debug" hidden><summary>Запрос и ответ · JSON</summary><div class="debug-content"><p id="itinerary-http" class="debug-meta"></p><h3>Отправленный запрос</h3><pre id="itinerary-request" tabindex="0"></pre><h3>Ответ API</h3><pre id="itinerary-response" tabindex="0"></pre></div></details>
+          </section>
+        </div>
+      </div>
+      <footer class="page-footer"><span>Astana Compass · Проверка HTTP API</span><span>Ключи API не вводятся и не хранятся в браузере.</span></footer>
+    </main>
+  </div>
+</body>
+</html>
