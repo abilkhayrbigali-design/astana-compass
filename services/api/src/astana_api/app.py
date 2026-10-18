@@ -17,6 +17,8 @@ from starlette.responses import JSONResponse
 from astana_contracts import ContractValidationError, load_schema, validate_payload
 from astana_recommender import RecommenderError
 from .composition import build_services
+from .demo_examples import request_examples
+from .sandbox import sandbox_router
 from .settings import Settings
 
 
@@ -95,15 +97,32 @@ def utcnow():
     return datetime.now(timezone.utc).isoformat()
 
 
-def check_finite(value):
-    if isinstance(value, float) and not math.isfinite(value):
-        raise APIError("invalid_request")
+def check_payload_bounds(value):
+    """Bound synchronous schema work before entering the provider concurrency gate."""
+    pending, count = [(value, 0)], 0
+    while pending:
+        item, depth = pending.pop()
+        count += 1
+        if count > 2048 or depth > 16:
+            raise APIError("invalid_request")
+        if isinstance(item, float) and not math.isfinite(item):
+            raise APIError("invalid_request")
+        if isinstance(item, str) and len(item) > 8192:
+            raise APIError("invalid_request")
+        if isinstance(item, dict):
+            if len(item) > 64 or any(len(key) > 512 for key in item):
+                raise APIError("invalid_request")
+            pending.extend((child, depth + 1) for child in item.values())
+        elif isinstance(item, list):
+            if len(item) > 64:
+                raise APIError("invalid_request")
+            pending.extend((child, depth + 1) for child in item)
     if isinstance(value, dict):
-        for child in value.values():
-            check_finite(child)
-    elif isinstance(value, list):
-        for child in value:
-            check_finite(child)
+        query, constraints = value.get("query"), value.get("constraints")
+        if isinstance(query, str) and len(query) > 2000:
+            raise APIError("invalid_request")
+        if isinstance(constraints, list) and len(constraints) > 20:
+            raise APIError("invalid_request")
 
 
 async def read_payload(request, definition):
@@ -111,12 +130,10 @@ async def read_payload(request, definition):
         raise APIError("invalid_request")
     try:
         payload = await request.json()
-        check_finite(payload)
+        check_payload_bounds(payload)
         validate_payload(definition, payload)
     except (ValueError, UnicodeError, RecursionError, ContractValidationError):
         raise APIError("invalid_request") from None
-    if len(payload.get("query", "")) > 2000 or len(payload.get("constraints", [])) > 20:
-        raise APIError("invalid_request")
     if payload.get("transport", "walking") != "walking":
         raise APIError("unsupported_transport")
     return payload
@@ -167,6 +184,7 @@ def create_app(settings=None, services=None):
     app.add_middleware(BoundaryMiddleware, settings=settings)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type"], expose_headers=["X-Request-ID", "X-Astana-Data-Mode"], allow_credentials=False)
+    app.include_router(sandbox_router())
 
     @app.exception_handler(APIError)
     async def api_error(request, exc):
@@ -297,6 +315,7 @@ def create_app(settings=None, services=None):
         # Project the canonical schema without maintaining parallel HTTP DTOs.
         definitions = json.loads(json.dumps(load_schema()["$defs"]).replace("#/$defs/", "#/components/schemas/"))
         schema.setdefault("components", {}).setdefault("schemas", {}).update(definitions)
+        examples = request_examples()
         endpoints = {
             "/v1/health/live": ("get", None, "HealthResponse", "200"),
             "/v1/health/ready": ("get", None, "HealthResponse", "200"),
@@ -313,7 +332,7 @@ def create_app(settings=None, services=None):
             for code in [422, 429, 500, 503]:
                 operation["responses"][str(code)] = {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}
             if input_type:
-                operation["requestBody"] = {"required": True, "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{input_type}"}}}}
+                operation["requestBody"] = {"required": True, "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{input_type}"}, "examples": examples[input_type]}}}
         schema["paths"]["/v1/health/ready"]["get"]["responses"]["503"] = {"description": "Unavailable", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}}}
         schema["paths"]["/v1/places/{place_id}"]["get"]["responses"]["404"] = {"description": "Not found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}
         app.openapi_schema = schema
